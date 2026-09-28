@@ -1,0 +1,4669 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+
+<meta charset="UTF-8">
+
+<meta name="viewport"
+content="width=device-width,initial-scale=1">
+
+<link rel="stylesheet"
+href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.2/css/all.min.css">
+
+<title>Zona▶Play Player</title>
+
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+
+<script src="https://cdn.jsdelivr.net/npm/mpegts.js@latest/dist/mpegts.min.js"></script>
+
+<style>
+
+*{
+box-sizing:border-box;
+list-style:none;
+text-decoration:none;
+margin:0;
+padding:0;
+font-family:Arial;
+user-select:none;
+-webkit-user-select:none;
+-webkit-tap-highlight-color:transparent;
+}
+
+html,
+body{
+width:100%;
+height:100%;
+margin:0;
+padding:0;
+overflow:hidden;
+background:linear-gradient(to right,#0f2027,#2c5364);
+font-family:Arial;
+-webkit-user-select:none;
+-webkit-tap-highlight-color:transparent;
+}
+
+
+/* =========================================================
+   CONFIGURACIÓN
+   ========================================================= */
+
+:root{
+--controls-bottom:15px;
+--progress-bottom:50px;
+--progress-height:75px;
+}
+
+
+/* =========================================================
+   PLAYER
+   ========================================================= */
+
+#player-container{
+position:fixed;
+top:0;
+left:0;
+width:100vw;
+height:100vh;
+overflow:hidden;
+background:#000;
+}
+
+video{
+position:absolute;
+top:0;
+left:0;
+width:100vw;
+height:100vh;
+object-fit:contain;
+background:#000;
+}
+
+
+/* =========================================================
+   CONTROLES
+   ========================================================= */
+
+#player-controls{
+position:absolute;
+bottom:var(--controls-bottom);
+left:54%;
+transform:translateX(-50%);
+display:flex;
+gap:70px;
+z-index:1000;
+height:14px;
+align-items:center;
+}
+
+#player-controls button{
+width:65px;
+height:65px;
+border:none;
+border-radius:50%;
+background:none;
+color:#ccc;
+font-size:20px;
+cursor:pointer;
+padding:0;
+outline:none;
+}
+
+#player-controls button:focus{
+outline:none;
+color:#3b82f6;
+transform:scale(1.03);
+text-shadow:
+0 0 8px rgba(255,255,255,.6);
+}
+
+
+/* =========================================================
+   TOPBAR
+   ========================================================= */
+
+#player-topbar{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:60px;
+display:flex;
+align-items:center;
+gap:15px;
+padding:0 20px;
+background:
+linear-gradient(
+to bottom,
+rgba(0,0,0,.9),
+transparent
+);
+z-index:1000;
+}
+
+#video-title{
+display:none;
+color:#ccc;
+font-size:30px;
+margin:0;
+}
+
+
+/* =========================================================
+   MENSAJE
+   ========================================================= */
+
+#player-message{
+position:absolute;
+background:none;
+left:30px;
+top:25px;
+font-size:20px;
+font-weight:700;
+color:#ccc;
+text-shadow:0 2px 8px #000;
+opacity:0;
+transition:.3s;
+z-index:999;
+}
+
+#player-message.show{
+opacity:1;
+}
+
+
+/* =========================================================
+   SELECTOR DE CANALES
+   ========================================================= */
+
+#channel-selector-menu{
+position:absolute;
+left:10px;
+bottom:75px;
+display:none;
+flex-direction:column;
+gap:25px;
+padding:30px;
+border-radius:14px;
+z-index:2000;
+min-width:240px;
+max-height:400px;
+overflow-y:auto;
+background:rgba(0,0,0,.5);
+backdrop-filter:blur(10px);
+}
+
+#channel-selector-menu.active{
+display:flex;
+}
+
+#channel-selector-btn{
+border:none;
+background:none;
+color:#ccc;
+width:60px;
+height:60px;
+border-radius:50%;
+cursor:pointer;
+font-size:20px;
+outline:none;
+}
+
+#channel-selector-btn:focus{
+outline:none;
+color:#3b82f6;
+transform:scale(1.03);
+text-shadow:
+0 0 8px rgba(255,255,255,.6);
+}
+
+#channel-selector-menu button{
+border:none;
+padding:12px;
+color:#ccc;
+border-radius:6px;
+cursor:pointer;
+text-align:left;
+font-size:16px;
+font-weight:700;
+transition:.25s;
+background:transparent;
+}
+
+#channel-selector-menu button:focus{
+outline:none;
+color:#3b82f6;
+transform:scale(1.06);
+text-shadow:
+0 0 8px rgba(255,255,255,.6);
+}
+
+#close-channel-menu{
+color:#ccc;
+font-weight:800;
+}
+
+#close-channel-menu:focus{
+outline:none;
+color:#3b82f6;
+transform:scale(1.06);
+}
+
+
+/* =========================================================
+   VISIBILIDAD
+   ========================================================= */
+
+.player-hidden{
+opacity:0;
+pointer-events:none;
+transition:opacity .3s ease;
+}
+
+.player-visible{
+opacity:1;
+pointer-events:auto;
+transition:opacity .3s ease;
+}
+
+
+/* =========================================================
+   PROGRESO
+   ========================================================= */
+
+#player-progress{
+position:absolute;
+bottom:var(--progress-bottom);
+left:50%;
+transform:translateX(-50%);
+width:85%;
+height:var(--progress-height);
+display:flex;
+align-items:flex-end;
+gap:12px;
+z-index:1000;
+}
+
+
+/* =========================================================
+   CONTENEDOR DE BARRA
+   ========================================================= */
+
+#progress-container{
+position:relative;
+flex:1;
+height:8px;
+background:rgba(255,255,255,.45);
+border-radius:5px;
+overflow:visible;
+margin-bottom:15px;
+}
+
+#progress-bar{
+width:0%;
+height:100%;
+background:#3b82f6;
+transition:width .1s linear;
+border-radius:5px;
+}
+
+
+/* =========================================================
+   TÍTULO SOBRE LA BARRA
+   ========================================================= */
+
+#movie-title-progress{
+position:absolute;
+left:19%;
+bottom:25px;
+font-size:22px;
+font-weight:600;
+color:#fff;
+padding:0;
+text-shadow:
+0 2px 10px #000;
+overflow:hidden;
+text-overflow:ellipsis;
+white-space:nowrap;
+display:none;
+max-width:70%;
+z-index:20;
+}
+
+
+/* =========================================================
+   CURSOR
+   ========================================================= */
+
+#seek-cursor{
+position:absolute;
+left:0;
+top:50%;
+transform:translate(-50%,-50%);
+width:18px;
+height:18px;
+border-radius:50%;
+background:#3b82f6;
+box-shadow:
+0 0 10px rgba(59,130,246,.9);
+display:none;
+z-index:5;
+}
+
+#seek-time{
+position:absolute;
+bottom:20px;
+left:0;
+transform:translateX(-50%);
+padding:4px 8px;
+border-radius:none;
+background:none;
+color:#ccc;
+font-size:16px;
+font-weight:700;
+white-space:nowrap;
+display:none;
+z-index:6;
+}
+
+
+/* =========================================================
+   RESUME
+   ========================================================= */
+
+#resume-box{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:rgba(0,0,0,.5);
+backdrop-filter:blur(10px);
+padding:10px;
+border-radius:10px;
+z-index:5000;
+display:none;
+text-align:center;
+color:#ccc;
+}
+
+#resume-box h3{
+margin:0 0 15px;
+font-size:14px;
+}
+
+#resume-box button{
+display:block;
+width:150px;
+margin:10px auto;
+padding:10px;
+border:none;
+border-radius:5px;
+background:rgba(0,0,0,.5);
+color:#ccc;
+font-size:16px;
+cursor:pointer;
+}
+
+#resume-box button:focus{
+outline:none;
+background:#3b82f6;
+transform:scale(1.06);
+}
+
+
+/* =========================================================
+   ESTADO
+   ========================================================= */
+
+#player-status{
+position:absolute;
+top:50%;
+left:50%;
+transform:translate(-50%,-50%);
+background:none;
+color:#3b82f6;
+font-size:20px;
+font-weight:900;
+z-index:3000;
+display:none;
+}
+
+
+/* =========================================================
+   TIEMPOS
+   ========================================================= */
+
+#current-time{
+color:#fff;
+font-size:13px;
+font-weight:bold;
+min-width:50px;
+text-align:left;
+margin-bottom:10px;
+}
+
+#duration-time{
+color:#ddd;
+font-size:13px;
+font-weight:bold;
+min-width:50px;
+text-align:right;
+margin-bottom:9px;
+}
+
+
+/* =========================================================
+   INFORMACIÓN DE CANAL
+   ========================================================= */
+
+#channel-info{
+position:absolute;
+bottom:75px;
+left:24%;
+display:none;
+align-items:center;
+gap:12px;
+padding:0;
+border-radius:0;
+color:#ccc;
+z-index:4000;
+min-width:auto;
+}
+
+
+/* =========================================================
+   IMAGEN
+   ========================================================= */
+
+#player-image{
+width:70px;
+height:80px;
+border-radius:8px;
+display:block;
+object-fit:contain;
+object-position:center;
+flex-shrink:0;
+}
+
+
+/* =========================================================
+   LOGO CANAL
+   ========================================================= */
+
+#channel-logo{
+width:70px;
+height:40px;
+display:block;
+object-fit:contain;
+object-position:center;
+flex-shrink:0;
+}
+
+
+/* =========================================================
+   NOMBRE CANAL
+   ========================================================= */
+
+#channel-name{
+font-size:22px;
+font-weight:600;
+color:#ccc;
+text-shadow:0 2px 10px #000;
+}
+
+.live-on{
+color:#ad0715;
+font-weight:700;
+}
+
+.live-off{
+color:#aaa;
+font-weight:700;
+}
+
+
+/* =========================================================
+   SPINNER
+   ========================================================= */
+
+.spinner{
+width:72px;
+height:72px;
+border:5px solid rgba(255,255,255,.2);
+border-top:5px solid #3b82f6;
+border-radius:50%;
+animation:spinnerRotate .8s linear infinite;
+display:inline-block;
+margin-right:2px;
+margin-top:6px;
+vertical-align:middle;
+}
+
+@keyframes spinnerRotate{
+from{
+transform:rotate(0deg);
+}
+to{
+transform:rotate(360deg);
+}
+}
+
+
+/* =========================================================
+   BACKGROUND
+   ========================================================= */
+
+#player-background{
+position:absolute;
+top:0;
+left:0;
+width:100%;
+height:100%;
+background:linear-gradient(to right,#0f2027,#2c5364);
+display:flex;
+align-items:center;
+justify-content:center;
+z-index:1;
+}
+
+#player-background-logo{
+display:flex;
+align-items:center;
+justify-content:center;
+gap:12px;
+font-size:clamp(32px,6vw,100px);
+font-weight:900;
+letter-spacing:6px;
+user-select:none;
+}
+
+.logo-zona{
+color:#3b82f6;
+text-shadow:
+0 0 15px rgba(59,130,246,.45);
+}
+
+.logo-play-icon{
+color:#fff;
+margin-left:5px;
+text-shadow:
+0 0 10px rgba(255,255,255,.35);
+}
+
+#logo-play{
+color:#3b82f6;
+margin-right:5px;
+text-shadow:
+0 0 15px rgba(59,130,246,.45);
+}
+
+
+@media(min-width:900px) {
+ #player-controls{
+     gap:105px;
+  }
+          
+}
+
+
+
+/* ZONA▶PLAY HYBRID: Media3 dibuja el video; la interfaz HTML permanece encima. */
+#videoPlayer{
+  visibility:hidden !important;
+  pointer-events:none !important;
+}
+</style>
+
+</head>
+
+<body>
+
+
+<!-- =====================================================
+     TOPBAR
+     ===================================================== -->
+
+<div id="player-topbar">
+
+<h2 id="video-title"></h2>
+
+</div>
+
+
+<!-- =====================================================
+     SELECTOR CANALES
+     ===================================================== -->
+
+<div id="channel-selector-menu">
+
+<button id="close-channel-menu">
+
+<i class="fas fa-arrow-left"></i>
+
+&nbsp;Cerrar
+
+</button>
+
+</div>
+
+
+<!-- =====================================================
+     PLAYER
+     ===================================================== -->
+
+<div id="player-container">
+
+<div id="player-background">
+
+<div id="player-background-logo">
+
+<span class="logo-zona">ZONA</span>
+
+<span class="logo-play-icon">▶</span>
+
+<span id="logo-play">PLAY</span>
+
+</div>
+
+</div>
+
+
+<video
+id="videoPlayer"
+autoplay>
+</video>
+
+
+<div id="player-status"></div>
+
+</div>
+
+
+<!-- =====================================================
+     RESUME
+     ===================================================== -->
+
+<div id="resume-box">
+
+<h3></h3>
+
+<button id="resume-btn">
+▶ Continuar
+</button>
+
+<button id="restart-btn">
+↺ Reanudar 
+</button>
+
+</div>
+
+
+<div id="player-message"></div>
+
+
+<!-- =====================================================
+     INFORMACIÓN CANAL
+     ===================================================== -->
+
+<div id="channel-info">
+
+<div id="channel-name"></div>
+
+</div>
+
+
+<!-- =====================================================
+     PROGRESO
+     ===================================================== -->
+
+<div id="player-progress">
+
+<img
+id="player-image"
+src=""
+alt="">
+
+<div id="movie-title-progress"></div>
+
+<img
+id="channel-logo"
+src=""
+alt="">
+
+
+<span id="current-time">
+00:00
+</span>
+
+
+<div id="progress-container">
+
+<div id="progress-bar"></div>
+
+<div id="seek-cursor"></div>
+
+<div id="seek-time">
+00:00
+</div>
+
+</div>
+
+
+<span id="duration-time">
+00:00
+</span>
+
+</div>
+
+
+<!-- =====================================================
+     CONTROLES
+     ===================================================== -->
+
+<div id="player-controls">
+
+<button id="channel-selector-btn">
+
+<i class="fas fa-tv"></i>
+
+</button>
+
+
+<button id="playpause-btn">
+
+<i class="fas fa-play"></i>
+
+</button>
+
+
+<button id="previous-channel-btn">
+
+<i class="fas fa-repeat"></i>
+
+</button>
+
+</div>
+
+
+
+<script>
+/*
+=========================================================
+ ZONA▶PLAY — PUENTE PREPARADO PARA PLAYER NATIVO
+=========================================================
+ Esta capa NO reemplaza el reproductor HTML actual.
+
+ Cuando la aplicación se ejecute dentro de la versión
+ Android híbrida, Android podrá exponer:
+
+   window.ZonaPlayNativePlayer
+
+ La misma interfaz HTML podrá entonces enviarle:
+   - URL M3U8
+   - URL TS
+   - URL MP4
+   - título
+   - tipo de contenido
+
+ Si el puente Android no existe, todo continúa usando
+ el reproductor HTML actual.
+=========================================================
+*/
+
+window.ZonaPlayNative = {
+
+  available: function(){
+    return !!(
+      window.ZonaPlayNativePlayer &&
+      typeof window.ZonaPlayNativePlayer.load === "function"
+    );
+  },
+
+  load: function(url, data){
+    if(!this.available() || !url) return false;
+
+    try{
+      window.ZonaPlayNativePlayer.load(
+        String(url),
+        JSON.stringify(data || {})
+      );
+      return true;
+    }catch(e){
+      console.error("Zona▶Play Native Bridge:", e);
+      return false;
+    }
+  },
+
+  play: function(){
+    if(!this.available()) return;
+    try{
+      if(typeof window.ZonaPlayNativePlayer.play === "function"){
+        window.ZonaPlayNativePlayer.play();
+      }
+    }catch(e){}
+  },
+
+  pause: function(){
+    if(!this.available()) return;
+    try{
+      if(typeof window.ZonaPlayNativePlayer.pause === "function"){
+        window.ZonaPlayNativePlayer.pause();
+      }
+    }catch(e){}
+  },
+
+  seek: function(seconds){
+    if(!this.available()) return;
+    try{
+      if(typeof window.ZonaPlayNativePlayer.seek === "function"){
+        window.ZonaPlayNativePlayer.seek(Number(seconds) || 0);
+      }
+    }catch(e){}
+  },
+
+  audio: function(){
+    if(!this.available()) return;
+    try{
+      if(typeof window.ZonaPlayNativePlayer.audio === "function"){
+        window.ZonaPlayNativePlayer.audio();
+      }
+    }catch(e){}
+  },
+
+  subtitles: function(){
+    if(!this.available()) return;
+    try{
+      if(typeof window.ZonaPlayNativePlayer.subtitles === "function"){
+        window.ZonaPlayNativePlayer.subtitles();
+      }
+    }catch(e){}
+  },
+
+  quality: function(){
+    if(!this.available()) return;
+    try{
+      if(typeof window.ZonaPlayNativePlayer.quality === "function"){
+        window.ZonaPlayNativePlayer.quality();
+      }
+    }catch(e){}
+  }
+};
+
+/*
+ Envía al motor nativo la URL que actualmente utiliza
+ el reproductor HTML, pero solamente cuando Android
+ haya instalado el puente.
+
+ NO se modifica el comportamiento del navegador.
+*/
+window.zonaPlayLoadNativeIfAvailable = function(url, extraData){
+  if(!window.ZonaPlayNative.available()) return false;
+
+  return window.ZonaPlayNative.load(url, Object.assign({
+    title: window.zonaPlayCurrentTitle || "",
+    type: window.zonaPlayCurrentType || ""
+  }, extraData || {}));
+};
+
+
+
+const video =
+document.getElementById("videoPlayer");
+
+let hls = null;
+
+let mpegtsPlayer = null;
+
+let controlsTimer = null;
+
+let seekMode = false;
+
+let seekPosition = 0;
+
+let seekInterval = null;
+
+let seekDirection = 0;
+
+let playerIndex = 1;
+
+let selectorIndex = 0;
+
+let channelMenuIndex = 0;
+
+let channelButtons = [];
+
+let currentChannel = 0;
+
+let previousChannel = 0;
+
+let currentChannelName = "";
+
+let channels = [];
+
+let videoUrl = null;
+
+let title = "";
+
+let isMovieMode = false;
+
+let isSeriesMode = false;
+
+
+/* =========================================================
+   ELEMENTOS
+   ========================================================= */
+
+const topbar =
+document.getElementById("player-topbar");
+
+const controls =
+document.getElementById("player-controls");
+
+const playerProgress =
+document.getElementById("player-progress");
+
+const playerMessage =
+document.getElementById("player-message");
+
+const channelInfo =
+document.getElementById("channel-info");
+
+const channelLogo =
+document.getElementById("channel-logo");
+
+const channelName =
+document.getElementById("channel-name");
+
+const movieTitleProgress =
+document.getElementById(
+"movie-title-progress"
+);
+
+const playerImage =
+document.getElementById("player-image");
+
+const progressBar =
+document.getElementById("progress-bar");
+
+const seekCursor =
+document.getElementById("seek-cursor");
+
+const seekTimeLabel =
+document.getElementById("seek-time");
+
+const playerStatus =
+document.getElementById("player-status");
+
+const resumeBox =
+document.getElementById("resume-box");
+
+const resumeBtn =
+document.getElementById("resume-btn");
+
+const restartBtn =
+document.getElementById("restart-btn");
+
+const channelSelectorBtn =
+document.getElementById(
+"channel-selector-btn"
+);
+
+const channelSelectorMenu =
+document.getElementById(
+"channel-selector-menu"
+);
+
+const playPauseBtn =
+document.getElementById(
+"playpause-btn"
+);
+
+const previousChannelBtn =
+document.getElementById(
+"previous-channel-btn"
+);
+
+const currentTimeText =
+document.getElementById("current-time");
+
+const durationTimeText =
+document.getElementById("duration-time");
+
+const progressContainer =
+document.getElementById("progress-container");
+
+
+/* =========================================================
+   PARÁMETROS
+   ========================================================= */
+
+const params =
+new URLSearchParams(
+window.location.search
+);
+
+
+const playerMode =
+localStorage.getItem(
+"zonaPlayerMode"
+) || "tv";
+
+
+const savedChannels =
+
+playerMode === "247"
+
+?
+
+localStorage.getItem(
+"zona247Channels"
+)
+
+:
+
+localStorage.getItem(
+"zonaLiveChannels"
+);
+
+
+let movieData =
+
+JSON.parse(
+
+localStorage.getItem(
+"zonaPlayerContent"
+) || "null"
+
+);
+
+
+/* =========================================================
+   CANALES
+   ========================================================= */
+
+if(savedChannels){
+
+try{
+
+channels =
+JSON.parse(savedChannels);
+
+}catch(e){
+
+channels = [];
+
+}
+
+}
+
+
+/* =========================================================
+   ÍNDICES
+   ========================================================= */
+
+const channelIndexKey =
+
+playerMode === "247"
+
+?
+
+"zona247Index"
+
+:
+
+"zonaChannelIndex";
+
+
+const savedChannelIndex =
+localStorage.getItem(
+channelIndexKey
+);
+
+
+if(savedChannelIndex !== null){
+
+currentChannel =
+parseInt(
+savedChannelIndex
+) || 0;
+
+}
+
+
+/* =========================================================
+   DATOS DEL PLAYER
+   ========================================================= */
+
+if(movieData){
+
+if(movieData.type === "movie"){
+
+isMovieMode = true;
+
+}
+
+if(movieData.type === "series"){
+
+isSeriesMode = true;
+
+}
+
+
+videoUrl =
+movieData.stream;
+
+title =
+movieData.title || "";
+
+}
+
+
+if(!videoUrl){
+
+videoUrl =
+params.get("url");
+
+}
+
+
+if(!title){
+
+title =
+params.get("title") || "";
+
+}
+
+
+if(!videoUrl){
+
+videoUrl =
+localStorage.getItem(
+"zonaVideoUrl"
+);
+
+}
+
+
+if(!title){
+
+title =
+localStorage.getItem(
+"zonaVideoTitle"
+) || "";
+
+}
+
+
+/* =========================================================
+   CANALES DESDE URL
+   ========================================================= */
+
+const channelList =
+params.get("channels");
+
+
+if(channelList){
+
+try{
+
+channels =
+JSON.parse(
+decodeURIComponent(
+channelList
+)
+);
+
+}catch(e){
+
+channels = [];
+
+}
+
+}
+
+
+/* =========================================================
+   SERIES
+   ========================================================= */
+
+let isSeriesPlayer =
+movieData &&
+movieData.type === "series";
+
+
+/* =========================================================
+   TÍTULO
+   ========================================================= */
+
+if(isMovieMode || isSeriesMode){
+
+document.getElementById(
+"video-title"
+).textContent = "Zona▶Play";
+
+}else{
+
+document.getElementById(
+"video-title"
+).textContent =
+title || "Zona▶Play";
+
+}
+
+
+/* =========================================================
+   CONFIGURAR PELÍCULA / SERIE
+   ========================================================= */
+
+function configureContentUI(){
+
+if(isMovieMode || isSeriesMode){
+
+channelSelectorBtn.style.display =
+"none";
+
+previousChannelBtn.style.display =
+"none";
+
+channelLogo.style.display =
+"none";
+
+channelInfo.style.display =
+"none";
+
+movieTitleProgress.textContent =
+getCurrentContentTitle();
+
+movieTitleProgress.style.display =
+"block";
+
+
+playerImage.src =
+movieData?.poster ||
+movieData?.image ||
+"";
+
+
+playerImage.style.display =
+
+(
+
+movieData?.poster ||
+movieData?.image
+
+)
+
+?
+
+"block"
+
+:
+
+"none";
+
+}else{
+
+channelSelectorBtn.style.display =
+"block";
+
+previousChannelBtn.style.display =
+"block";
+
+channelLogo.style.display =
+"block";
+
+}
+
+}
+
+
+/* =========================================================
+   TÍTULO ACTUAL
+   ========================================================= */
+
+function getCurrentContentTitle(){
+
+if(!movieData)
+return title || "";
+
+if(movieData.type === "series"){
+
+let base =
+movieData.title || "";
+
+let season =
+movieData.season || "";
+
+let episode =
+movieData.episode || "";
+
+let episodeTitle =
+movieData.episodeTitle || "";
+
+
+if(episodeTitle){
+
+return (
+
+base +
+
+" · T" +
+
+season +
+
+"- E" +
+
+episode +
+
+" · " +
+
+episodeTitle
+
+);
+
+}
+
+
+return (
+
+base +
+
+" · T" +
+
+season +
+
+"- E" +
+
+episode
+
+);
+
+}
+
+return movieData.title || title || "";
+
+}
+
+
+/* =========================================================
+   ACTUALIZAR TÍTULO
+   ========================================================= */
+
+function updateContentTitle(){
+
+if(isMovieMode || isSeriesMode){
+
+movieTitleProgress.textContent =
+getCurrentContentTitle();
+
+movieTitleProgress.style.display =
+seekMode
+?
+"none"
+:
+"block";
+
+}
+
+}
+
+
+/* =========================================================
+   MOSTRAR FONDO DEL PLAYER
+   ========================================================= */
+
+function showPlayerBackground(){
+
+const background =
+document.getElementById(
+"player-background"
+);
+
+if(background){
+
+background.style.display =
+"flex";
+
+}
+
+}
+
+
+/* =========================================================
+   OCULTAR FONDO DEL PLAYER
+   ========================================================= */
+
+function hidePlayerBackground(){
+
+const background =
+document.getElementById(
+"player-background"
+);
+
+if(background){
+
+background.style.display =
+"none";
+
+}
+
+}
+
+
+/* =========================================================
+   MOSTRAR ESTADO DE CARGA
+   ========================================================= */
+
+function showPlayerLoading(){
+
+showPlayerBackground();
+
+playerStatus.style.display =
+"block";
+
+playerStatus.innerHTML =
+'<span class="spinner"></span>';
+
+}
+
+
+/* =========================================================
+   CONSTRUIR MENÚ TV
+   ========================================================= */
+
+function buildChannelMenu(){
+
+channelSelectorMenu.innerHTML =
+
+`
+<button id="close-channel-menu" type="button">
+<i class="fas fa-arrow-left"></i>
+&nbsp;Cerrar
+</button>
+`;
+
+
+channels.forEach(
+
+(channel,index)=>{
+
+if(!channel)
+return;
+
+
+const btn =
+document.createElement("button");
+
+
+btn.type =
+"button";
+
+
+btn.innerHTML =
+
+`<i class="fas fa-tv"></i>
+ ${channel.name || "Canal " + (index+1)}`;
+
+
+if(index === currentChannel){
+
+btn.style.color =
+"none";
+
+btn.style.fontWeight =
+"none";
+
+}
+
+
+btn.onclick = (e)=>{
+
+e.preventDefault();
+
+e.stopPropagation();
+
+
+if(index !== currentChannel){
+
+previousChannel =
+currentChannel;
+
+}
+
+
+currentChannel =
+index;
+
+
+localStorage.setItem(
+
+channelIndexKey,
+
+currentChannel
+
+);
+
+
+loadChannel(
+channels[currentChannel]
+);
+
+
+channelSelectorMenu.classList.remove(
+"active"
+);
+
+
+channelSelectorBtn.focus();
+
+};
+
+
+channelSelectorMenu.appendChild(btn);
+
+});
+
+
+channelButtons = [
+
+...channelSelectorMenu.querySelectorAll(
+"button"
+)
+
+];
+
+}
+
+
+/* =========================================================
+   MENÚ 24/7
+   ========================================================= */
+
+function build247ChannelMenu(){
+
+channelSelectorMenu.innerHTML =
+
+`
+<button id="close-channel-menu" type="button">
+<i class="fas fa-arrow-left"></i>
+&nbsp;Cerrar
+</button>
+`;
+
+
+channels.forEach(
+
+(channel,index)=>{
+
+if(!channel)
+return;
+
+
+const btn =
+document.createElement("button");
+
+
+btn.type =
+"button";
+
+
+btn.innerHTML =
+
+`<i class="fas fa-masks-theater"></i>
+ ${channel.name || "Canal " + (index+1)}`;
+
+
+if(index === currentChannel){
+
+btn.style.color =
+"none";
+
+btn.style.fontWeight =
+"none";
+
+}
+
+
+btn.onclick = (e)=>{
+
+e.preventDefault();
+
+e.stopPropagation();
+
+
+if(index !== currentChannel){
+
+previousChannel =
+currentChannel;
+
+}
+
+
+currentChannel =
+index;
+
+
+localStorage.setItem(
+"zona247Index",
+currentChannel
+);
+
+
+loadChannel(
+channels[currentChannel]
+);
+
+
+channelSelectorMenu.classList.remove(
+"active"
+);
+
+
+channelSelectorBtn.focus();
+
+};
+
+
+channelSelectorMenu.appendChild(btn);
+
+});
+
+
+channelButtons = [
+
+...channelSelectorMenu.querySelectorAll(
+"button"
+)
+
+];
+
+}
+
+
+/* =========================================================
+   CARGAR VIDEO
+   ========================================================= */
+
+function isSpanishAudioTrack(track){
+
+if(!track)
+return false;
+
+const values = [
+track.lang,
+track.language,
+track.languageCode,
+track.name,
+track.label,
+track.groupId
+]
+.filter(Boolean)
+.join(" ")
+.toLowerCase();
+
+return (
+/\b(es|spa|es-[a-z]{2}|spa-[a-z]{2})\b/i.test(values) ||
+values.includes("español") ||
+values.includes("espanol") ||
+values.includes("spanish") ||
+values.includes("castellano") ||
+values.includes("latino")
+);
+}
+
+function selectSpanishAudioTrack(hlsInstance){
+
+if(!hlsInstance || !Array.isArray(hlsInstance.audioTracks))
+return false;
+
+const tracks = hlsInstance.audioTracks;
+
+const spanishIndex = tracks.findIndex(
+track => isSpanishAudioTrack(track)
+);
+
+if(spanishIndex >= 0){
+hlsInstance.audioTrack = spanishIndex;
+return true;
+}
+
+return false;
+}
+
+function selectNativeSpanishAudioTrack(){
+
+try{
+
+const tracks = video.audioTracks;
+
+if(!tracks || !tracks.length)
+return false;
+
+let found = false;
+
+for(let i = 0; i < tracks.length; i++){
+
+const track = tracks[i];
+
+if(isSpanishAudioTrack(track)){
+track.enabled = true;
+found = true;
+}else{
+track.enabled = false;
+}
+
+}
+
+return found;
+
+}catch(e){
+return false;
+}
+}
+
+function selectSpanishAudio(){
+
+let found = selectSpanishAudioTrack(hls);
+
+if(selectNativeSpanishAudioTrack())
+found = true;
+
+return found;
+}
+
+function scheduleSpanishAudioSelection(){
+
+selectSpanishAudio();
+
+[100,300,700,1200,2000,3500].forEach(delay=>{
+
+setTimeout(()=>{
+selectSpanishAudio();
+},delay);
+
+});
+}
+
+function isTsUrl(url){
+
+return /\.ts(?:$|[?#])/i.test(String(url || ""));
+}
+
+function destroyMpegtsPlayer(){
+
+if(mpegtsPlayer){
+
+try{
+mpegtsPlayer.pause();
+}catch(e){}
+
+try{
+mpegtsPlayer.unload();
+}catch(e){}
+
+try{
+mpegtsPlayer.detachMediaElement();
+}catch(e){}
+
+try{
+mpegtsPlayer.destroy();
+}catch(e){}
+
+mpegtsPlayer = null;
+}
+}
+
+function loadTsVideo(finalUrl){
+
+if(typeof mpegts === "undefined" || !mpegts.isSupported()){
+
+video.src = finalUrl;
+video.load();
+video.play().catch(()=>{});
+return;
+}
+
+destroyMpegtsPlayer();
+
+mpegtsPlayer = mpegts.createPlayer({
+	type: "mpegts",
+	url: finalUrl,
+	isLive: !isMovieMode && !isSeriesMode,
+	cors: true
+});
+
+mpegtsPlayer.attachMediaElement(video);
+mpegtsPlayer.load();
+mpegtsPlayer.on(mpegts.Events.ERROR, ()=>{
+playerStatus.style.display = "block";
+playerStatus.innerHTML = '<i class="fas fa-circle-exclamation"></i> Error al reproducir';
+});
+
+video.addEventListener(
+"loadedmetadata",
+()=>{
+scheduleSpanishAudioSelection();
+},
+{once:true}
+);
+
+mpegtsPlayer.play().catch(()=>{
+video.play().catch(()=>{});
+});
+}
+
+
+function loadVideo(finalUrl){
+
+if(!finalUrl)
+return;
+
+/* En la app Android híbrida, Media3 es el motor de reproducción.
+   En navegador normal esta condición es falsa y se conserva el reproductor HTML. */
+if(window.ZonaPlayNative && window.ZonaPlayNative.available && window.ZonaPlayNative.available()){
+  try{
+    showPlayerLoading();
+    zonaPlayLoadNativeIfAvailable(finalUrl,{
+      title: window.zonaPlayCurrentTitle || '',
+      type: window.zonaPlayCurrentType || ''
+    });
+    return;
+  }catch(e){
+    console.error('Zona▶Play Native load:',e);
+  }
+}
+
+showPlayerLoading();
+
+try{
+if(hls) hls.destroy();
+}catch(e){}
+
+hls = null;
+
+try{
+if(typeof mpegtsPlayer !== "undefined" && mpegtsPlayer){
+mpegtsPlayer.destroy();
+}
+}catch(e){}
+
+if(typeof mpegtsPlayer !== "undefined")
+mpegtsPlayer = null;
+
+video.pause();
+video.removeAttribute("src");
+video.load();
+
+const rawUrl = String(finalUrl).trim();
+const url = rawUrl.toLowerCase();
+
+const isSpanish = (track) => {
+
+if(!track) return false;
+
+const value = [
+track.lang,
+track.language,
+track.languageCode,
+track.name,
+track.label,
+track.title,
+track.groupId
+].filter(Boolean).join(" ").toLowerCase();
+
+return (
+value.includes("español") ||
+value.includes("espanol") ||
+value.includes("spanish") ||
+value.includes("castellano") ||
+value.includes("latino") ||
+/\b(es|spa)\b/i.test(value) ||
+/\b(es|spa)-[a-z]{2}\b/i.test(value)
+);
+
+};
+
+const selectSpanish = () => {
+
+try{
+
+if(
+hls &&
+Array.isArray(hls.audioTracks) &&
+hls.audioTracks.length
+){
+
+const i =
+hls.audioTracks.findIndex(isSpanish);
+
+if(i >= 0)
+hls.audioTrack = i;
+
+}
+
+}catch(e){}
+
+try{
+
+const tracks = video.audioTracks;
+
+if(tracks && tracks.length){
+
+let found = false;
+
+for(let i=0;i<tracks.length;i++){
+
+if(isSpanish(tracks[i])){
+
+tracks[i].enabled = true;
+found = true;
+
+}else{
+
+tracks[i].enabled = false;
+
+}
+
+}
+
+return found;
+
+}
+
+}catch(e){}
+
+return false;
+
+};
+
+const retrySpanish = () => {
+
+selectSpanish();
+
+[100,300,700,1200,2000,3500].forEach(ms=>{
+
+setTimeout(selectSpanish,ms);
+
+});
+
+};
+
+/* M3U8 / HLS */
+if(
+/\.m3u8(?:[?#].*)?$/i.test(rawUrl) ||
+url.includes(".m3u8?")
+){
+
+if(Hls.isSupported()){
+
+hls = new Hls({
+enableWorker:true,
+backBufferLength:0,
+liveDurationInfinity:true
+});
+
+hls.loadSource(rawUrl);
+hls.attachMedia(video);
+
+hls.on(
+Hls.Events.MANIFEST_PARSED,
+()=>{
+
+retrySpanish();
+video.play().catch(()=>{});
+
+});
+
+hls.on(
+Hls.Events.AUDIO_TRACKS_UPDATED,
+()=>{
+
+retrySpanish();
+
+});
+
+hls.on(
+Hls.Events.AUDIO_TRACK_SWITCHED,
+()=>{
+
+setTimeout(selectSpanish,50);
+
+});
+
+hls.on(
+Hls.Events.ERROR,
+(event,data)=>{
+
+if(data && data.fatal){
+
+playerStatus.style.display = "block";
+
+playerStatus.innerHTML =
+'<i class="fas fa-circle-exclamation"></i> Error al reproducir';
+
+}
+
+});
+
+}else{
+
+video.src = rawUrl;
+
+video.addEventListener(
+"loadedmetadata",
+retrySpanish,
+{once:true}
+);
+
+video.load();
+video.play().catch(()=>{});
+
+}
+
+return;
+
+}
+
+/* MPEG-TS */
+if(
+/\.ts(?:[?#].*)?$/i.test(rawUrl) ||
+url.includes(".ts?")
+){
+
+if(
+typeof mpegts !== "undefined" &&
+mpegts.isSupported()
+){
+
+mpegtsPlayer =
+mpegts.createPlayer(
+{
+type:"mpegts",
+isLive:false,
+url:rawUrl
+},
+{
+enableWorker:true,
+lazyLoad:true,
+autoCleanupSourceBuffer:true
+}
+);
+
+mpegtsPlayer.attachMediaElement(video);
+mpegtsPlayer.load();
+
+video.play().catch(()=>{});
+
+}else{
+
+video.src = rawUrl;
+video.play().catch(()=>{});
+
+}
+
+return;
+
+}
+
+/* MP4 / reproducción directa */
+video.src = rawUrl;
+
+video.addEventListener(
+"loadedmetadata",
+retrySpanish,
+{once:true}
+);
+
+video.addEventListener(
+"loadeddata",
+selectSpanish,
+{once:true}
+);
+
+video.load();
+video.play().catch(()=>{});
+
+}
+
+function loadChannel(channel){
+
+if(!channel)
+return;
+
+
+currentChannelName =
+channel.name || "";
+
+
+localStorage.setItem(
+"zonaLastChannelName",
+currentChannelName
+);
+
+
+localStorage.setItem(
+channelIndexKey,
+currentChannel
+);
+
+
+/*
+   CORRECCIÓN:
+   Al cambiar de canal se muestra nuevamente el fondo
+   antes de iniciar la reproducción.
+*/
+
+showPlayerLoading();
+
+
+loadVideo(channel.url);
+
+showChannelInfo();
+
+}
+
+
+/* =========================================================
+   CARGAR MENÚ
+   ========================================================= */
+
+if(
+
+channels.length > 0
+
+&&
+
+!isMovieMode
+&&
+!isSeriesMode
+
+){
+
+if(playerMode === "247"){
+
+build247ChannelMenu();
+
+}else{
+
+buildChannelMenu();
+
+}
+
+}
+
+
+/* =========================================================
+   PLAY INICIAL
+   ========================================================= */
+
+if(videoUrl){
+
+loadVideo(videoUrl);
+
+}else if(
+
+channels.length > 0
+
+){
+
+const channel =
+channels[currentChannel] ||
+channels[0];
+
+currentChannel =
+channels.indexOf(channel);
+
+loadChannel(channel);
+
+}else{
+
+playerStatus.style.display =
+"block";
+
+playerStatus.textContent =
+"No encontrado";
+
+}
+
+
+/* =========================================================
+   BOTONES VISIBLES
+   ========================================================= */
+
+function getVisiblePlayerButtons(){
+
+return playerButtons.filter(
+button => {
+
+const style =
+window.getComputedStyle(button);
+
+return (
+style.display !== "none" &&
+style.visibility !== "hidden"
+);
+
+}
+);
+
+
+}
+
+
+const playerButtons = [
+
+channelSelectorBtn,
+playPauseBtn,
+previousChannelBtn
+
+];
+
+
+/* =========================================================
+   FOCUS
+   ========================================================= */
+
+function focusPlayerButton(index){
+
+const visibleButtons =
+getVisiblePlayerButtons();
+
+
+if(!visibleButtons.length)
+return;
+
+
+if(index < 0)
+index =
+visibleButtons.length - 1;
+
+
+if(index >= visibleButtons.length)
+index = 0;
+
+
+playerIndex =
+index;
+
+
+visibleButtons.forEach(
+btn => {
+
+btn.setAttribute(
+"tabindex",
+"-1"
+);
+
+});
+
+
+const btn =
+visibleButtons[playerIndex];
+
+
+btn.setAttribute(
+"tabindex",
+"0"
+);
+
+btn.focus();
+
+}
+
+
+/* =========================================================
+   PLAY / PAUSA
+   ========================================================= */
+
+playPauseBtn.addEventListener(
+"click",
+()=>{
+
+if(video.paused){
+
+video.play().catch(()=>{});
+
+playPauseBtn.innerHTML =
+'<i class="fas fa-pause"></i>';
+
+}else{
+
+video.pause();
+
+playPauseBtn.innerHTML =
+'<i class="fas fa-play"></i>';
+
+}
+
+showPlayerControls();
+
+}
+);
+
+
+/* =========================================================
+   ESTADO PLAY
+   ========================================================= */
+
+video.addEventListener(
+"play",
+()=>{
+
+playPauseBtn.innerHTML =
+'<i class="fas fa-pause"></i>';
+
+}
+);
+
+
+video.addEventListener(
+"pause",
+()=>{
+
+playPauseBtn.innerHTML =
+'<i class="fas fa-play"></i>';
+
+}
+);
+
+
+video.addEventListener(
+"playing",
+()=>{
+
+/*
+   CORRECCIÓN:
+   El fondo desaparece solamente cuando realmente comienza
+   la reproducción.
+*/
+
+hidePlayerBackground();
+
+playerStatus.style.display =
+"none";
+
+playPauseBtn.innerHTML =
+'<i class="fas fa-pause"></i>';
+
+}
+);
+
+
+/* =========================================================
+   CANAL ANTERIOR
+   ========================================================= */
+
+previousChannelBtn.addEventListener(
+"click",
+()=>{
+
+if(channels.length < 2)
+return;
+
+
+const temp =
+currentChannel;
+
+
+currentChannel =
+previousChannel;
+
+previousChannel =
+temp;
+
+
+if(currentChannel < 0 ||
+!channels[currentChannel]){
+
+currentChannel =
+temp;
+
+return;
+
+}
+
+
+if(playerMode === "247"){
+
+localStorage.setItem(
+"zona247Index",
+currentChannel
+);
+
+}else{
+
+localStorage.setItem(
+channelIndexKey,
+currentChannel
+);
+
+}
+
+
+loadChannel(
+channels[currentChannel]
+);
+
+
+showPlayerControls();
+
+}
+);
+
+
+/* =========================================================
+   SELECTOR
+   ========================================================= */
+
+channelSelectorBtn.addEventListener(
+"click",
+(e)=>{
+
+e.preventDefault();
+
+e.stopPropagation();
+
+
+if(!channels.length)
+return;
+
+
+/*
+   CORRECCIÓN:
+   Si el selector ya está abierto, el mismo botón
+   simplemente lo cierra.
+   No se cambia de canal.
+*/
+
+const wasActive =
+channelSelectorMenu.classList.contains(
+"active"
+);
+
+
+if(wasActive){
+
+channelSelectorMenu.classList.remove(
+"active"
+);
+
+channelSelectorBtn.focus();
+
+return;
+
+}
+
+
+channelSelectorMenu.classList.add(
+"active"
+);
+
+
+channelMenuIndex =
+currentChannel + 1;
+
+
+if(
+channelMenuIndex >=
+channelButtons.length
+){
+
+channelMenuIndex = 1;
+
+}
+
+
+if(channelButtons[channelMenuIndex]){
+
+channelButtons[
+channelMenuIndex
+].focus();
+
+}
+
+}
+);
+
+
+/* =========================================================
+   CERRAR SELECTOR
+   ========================================================= */
+
+/*
+   IMPORTANTE:
+   El botón Cerrar se crea dinámicamente mediante innerHTML.
+   Por eso no usamos solamente la referencia original.
+*/
+
+channelSelectorMenu.addEventListener(
+"click",
+(e)=>{
+
+const closeButton =
+e.target.closest(
+"#close-channel-menu"
+);
+
+
+if(closeButton){
+
+e.preventDefault();
+
+e.stopPropagation();
+
+
+channelSelectorMenu.classList.remove(
+"active"
+);
+
+
+channelSelectorBtn.focus();
+
+}
+
+}
+);
+
+
+/* =========================================================
+   SEEK
+   ========================================================= */
+
+function showSeekCursor(){
+
+seekMode = true;
+
+seekPosition =
+video.currentTime;
+
+seekCursor.style.display =
+"block";
+
+seekTimeLabel.style.display =
+"block";
+
+movieTitleProgress.style.display =
+"none";
+
+updateSeekCursor();
+
+}
+
+
+function hideSeekCursor(){
+
+seekMode = false;
+
+seekCursor.style.display =
+"none";
+
+seekTimeLabel.style.display =
+"none";
+
+updateContentTitle();
+
+}
+
+
+function updateSeekCursor(){
+
+if(!isFinite(video.duration))
+return;
+
+
+let percent =
+(seekPosition / video.duration) * 100;
+
+
+percent =
+Math.max(
+0,
+Math.min(
+100,
+percent
+)
+);
+
+
+seekCursor.style.left =
+percent + "%";
+
+seekTimeLabel.style.left =
+percent + "%";
+
+seekTimeLabel.textContent =
+formatTime(seekPosition);
+
+}
+
+
+/* =========================================================
+   FORMATO
+   ========================================================= */
+
+function formatTime(seconds){
+
+if(!isFinite(seconds))
+return "00:00";
+
+
+seconds =
+Math.max(
+0,
+Math.floor(seconds)
+);
+
+
+const hours =
+Math.floor(
+seconds / 3600
+);
+
+
+const mins =
+Math.floor(
+(seconds % 3600) / 60
+);
+
+
+const secs =
+seconds % 60;
+
+
+if(hours > 0){
+
+return (
+
+hours +
+":" +
+String(mins).padStart(2,"0") +
+":" +
+String(secs).padStart(2,"0")
+
+);
+
+}
+
+
+return (
+
+String(mins).padStart(2,"0") +
+":" +
+String(secs).padStart(2,"0")
+
+);
+
+}
+
+
+/* =========================================================
+   PROGRESO
+   ========================================================= */
+
+video.addEventListener(
+"timeupdate",
+()=>{
+
+currentTimeText.textContent =
+formatTime(
+video.currentTime
+);
+
+
+if(isFinite(video.duration)){
+
+const percent =
+(video.currentTime /
+video.duration) * 100;
+
+
+progressBar.style.width =
+percent + "%";
+
+
+durationTimeText.textContent =
+formatTime(
+video.duration
+);
+
+}else{
+
+progressBar.style.width =
+"0%";
+
+
+durationTimeText.innerHTML =
+'<span class="live-on">●</span> EN VIVO';
+
+}
+
+}
+);
+
+
+/* =========================================================
+   CONTROLES
+   ========================================================= */
+
+function showPlayerControls(){
+
+topbar.classList.remove(
+"player-hidden"
+);
+
+controls.classList.remove(
+"player-hidden"
+);
+
+playerProgress.classList.remove(
+"player-hidden"
+);
+
+topbar.classList.add(
+"player-visible"
+);
+
+controls.classList.add(
+"player-visible"
+);
+
+playerProgress.classList.add(
+"player-visible"
+);
+
+
+clearTimeout(
+controlsTimer
+);
+
+
+controlsTimer =
+setTimeout(
+()=>{
+
+topbar.classList.remove(
+"player-visible"
+);
+
+controls.classList.remove(
+"player-visible"
+);
+
+playerProgress.classList.remove(
+"player-visible"
+);
+
+topbar.classList.add(
+"player-hidden"
+);
+
+controls.classList.add(
+"player-hidden"
+);
+
+playerProgress.classList.add(
+"player-hidden"
+);
+
+playerMessage.classList.remove(
+"show"
+);
+
+},
+5000
+);
+
+}
+
+
+/* =========================================================
+   MENSAJE
+   ========================================================= */
+
+function showPlayerMessage(text){
+
+playerMessage.textContent =
+text;
+
+playerMessage.classList.add(
+"show"
+);
+
+clearTimeout(
+playerMessage.timer
+);
+
+playerMessage.timer =
+setTimeout(
+()=>{
+
+playerMessage.classList.remove(
+"show"
+);
+
+},
+5000
+);
+
+}
+
+
+/* =========================================================
+   INFO CANAL
+   ========================================================= */
+
+function showChannelInfo(){
+
+if(isMovieMode || isSeriesMode){
+
+channelInfo.style.display =
+"none";
+
+updateContentTitle();
+
+return;
+
+}
+
+
+playerImage.style.display =
+"none";
+
+movieTitleProgress.style.display =
+"none";
+
+channelInfo.style.display =
+"flex";
+
+
+const channel =
+channels[currentChannel];
+
+
+if(channel){
+
+channelLogo.src =
+channel.logo || "";
+
+channelName.textContent =
+channel.name || "";
+
+}
+
+
+clearTimeout(
+channelInfo.timer
+);
+
+
+channelInfo.timer =
+setTimeout(
+()=>{
+
+channelInfo.style.display =
+"none";
+
+},
+5000
+);
+
+}
+
+
+/* =========================================================
+   CAMBIAR CANAL TV
+   ========================================================= */
+
+function changeChannel(dir){
+
+if(!channels.length)
+return;
+
+
+previousChannel =
+currentChannel;
+
+
+currentChannel +=
+dir;
+
+
+if(
+currentChannel >=
+channels.length
+){
+
+currentChannel = 0;
+
+}
+
+
+if(
+currentChannel < 0
+){
+
+currentChannel =
+channels.length - 1;
+
+}
+
+
+loadChannel(
+channels[currentChannel]
+);
+
+}
+
+
+/* =========================================================
+   CAMBIAR 24/7
+   ========================================================= */
+
+function change247Channel(dir){
+
+if(!channels.length)
+return;
+
+
+previousChannel =
+currentChannel;
+
+
+currentChannel +=
+dir;
+
+
+if(
+currentChannel >=
+channels.length
+){
+
+currentChannel = 0;
+
+}
+
+
+if(
+currentChannel < 0
+){
+
+currentChannel =
+channels.length - 1;
+
+}
+
+
+localStorage.setItem(
+"zona247Index",
+currentChannel
+);
+
+
+loadChannel(
+channels[currentChannel]
+);
+
+}
+
+
+/* =========================================================
+   GUARDAR PROGRESO
+   ========================================================= */
+
+function saveContinueWatchingProgress(){
+
+if(!movieData)
+return;
+
+
+if(!isFinite(video.duration))
+return;
+
+
+const progress =
+video.currentTime /
+video.duration;
+
+
+let history =
+JSON.parse(
+localStorage.getItem(
+"continueWatching"
+)
+) || [];
+
+
+const item = {
+
+title: movieData.title,
+
+poster: movieData.poster,
+
+banner: movieData.banner,
+
+stream: movieData.stream,
+
+type: movieData.type || "movie",
+
+meta: movieData.meta || "",
+
+description:
+movieData.description || "",
+
+season:
+movieData.season || 0,
+
+episode:
+movieData.episode || 0,
+
+episodeTitle:
+movieData.episodeTitle || "",
+
+currentTime:
+video.currentTime,
+
+duration:
+video.duration,
+
+progress:
+progress,
+
+updated:
+Date.now()
+
+};
+
+
+history =
+history.filter(
+itemHistory => {
+
+if(item.type === "series"){
+
+return !(
+itemHistory.title ===
+item.title &&
+
+itemHistory.season ===
+item.season &&
+
+itemHistory.episode ===
+item.episode
+);
+
+}
+
+return (
+itemHistory.title !==
+item.title
+);
+
+}
+);
+
+
+history.unshift(item);
+
+history =
+history.slice(0,20);
+
+
+localStorage.setItem(
+"continueWatching",
+JSON.stringify(history)
+);
+
+}
+
+
+/* =========================================================
+   GUARDAR PROGRESO
+   ========================================================= */
+
+setInterval(
+()=>{
+
+if(
+
+(isMovieMode ||
+isSeriesMode) &&
+
+video.currentTime > 0 &&
+
+!video.paused &&
+
+!video.ended &&
+
+isFinite(video.duration)
+
+){
+
+saveContinueWatchingProgress();
+
+}
+
+},
+3000
+);
+
+
+/* =========================================================
+   ELIMINAR EPISODIO DEL HISTORIAL
+   ========================================================= */
+
+function removeCurrentEpisodeFromHistory(){
+
+if(!movieData)
+return;
+
+
+let history =
+JSON.parse(
+localStorage.getItem(
+"continueWatching"
+)
+) || [];
+
+
+history =
+history.filter(
+item => {
+
+if(movieData.type === "series"){
+
+return !(
+item.title ===
+movieData.title &&
+
+item.season ===
+movieData.season &&
+
+item.episode ===
+movieData.episode
+);
+
+}
+
+
+return (
+item.title !==
+movieData.title
+);
+
+}
+);
+
+
+localStorage.setItem(
+"continueWatching",
+JSON.stringify(history)
+);
+
+
+localStorage.removeItem(
+"lastPosition_" +
+videoUrl
+);
+
+}
+
+
+/* =========================================================
+   SIGUIENTE EPISODIO
+   ========================================================= */
+
+function playNextEpisode(){
+
+if(
+!movieData ||
+movieData.type !== "series"
+){
+
+return;
+
+}
+
+
+const seriesData =
+movieData.seriesData;
+
+
+if(
+!seriesData ||
+!Array.isArray(seriesData.seasons)
+){
+
+console.log(
+"No se encontró seriesData.seasons"
+);
+
+return;
+
+}
+
+
+let seasonIndex =
+parseInt(
+movieData.currentSeasonIndex
+);
+
+
+let episodeIndex =
+parseInt(
+movieData.currentEpisodeIndex
+);
+
+
+if(!isFinite(seasonIndex)){
+
+seasonIndex = 0;
+
+}
+
+
+if(!isFinite(episodeIndex)){
+
+episodeIndex = 0;
+
+}
+
+
+const currentSeason =
+seriesData.seasons[
+seasonIndex
+];
+
+
+if(
+!currentSeason ||
+!Array.isArray(
+currentSeason.episodes
+)
+){
+
+return;
+
+}
+
+
+/* =====================================================
+   SIGUIENTE EPISODIO DE LA MISMA TEMPORADA
+   ===================================================== */
+
+const nextEpisodeIndex =
+episodeIndex + 1;
+
+
+if(
+currentSeason.episodes[
+nextEpisodeIndex
+]
+){
+
+startSeriesEpisode(
+
+seriesData,
+
+seasonIndex,
+
+nextEpisodeIndex
+
+);
+
+return;
+
+}
+
+
+/* =====================================================
+   TERMINÓ LA TEMPORADA
+   BUSCAR SIGUIENTE TEMPORADA
+   ===================================================== */
+
+const nextSeasonIndex =
+seasonIndex + 1;
+
+
+if(
+seriesData.seasons[
+nextSeasonIndex
+]
+){
+
+const nextSeason =
+seriesData.seasons[
+nextSeasonIndex
+];
+
+
+if(
+nextSeason.episodes &&
+nextSeason.episodes.length > 0
+){
+
+startSeriesEpisode(
+
+seriesData,
+
+nextSeasonIndex,
+
+0
+
+);
+
+return;
+
+}
+
+}
+
+
+/* =====================================================
+   NO HAY MÁS TEMPORADAS
+   ===================================================== */
+
+console.log(
+"Serie terminada: no hay más episodios."
+);
+
+}
+
+
+/* =========================================================
+   INICIAR EPISODIO
+   ========================================================= */
+
+function startSeriesEpisode(
+seriesData,
+seasonIndex,
+episodeIndex
+){
+
+const season =
+seriesData.seasons[
+seasonIndex
+];
+
+
+if(!season)
+return;
+
+
+const episode =
+season.episodes[
+episodeIndex
+];
+
+
+if(!episode)
+return;
+
+
+if(!episode.stream)
+return;
+
+
+/* =====================================================
+   ACTUALIZAR movieData
+   ===================================================== */
+
+movieData.seriesData =
+seriesData;
+
+movieData.currentSeasonIndex =
+seasonIndex;
+
+movieData.currentEpisodeIndex =
+episodeIndex;
+
+movieData.season =
+season.season ??
+seasonIndex + 1;
+
+movieData.episode =
+episode.episode ??
+episodeIndex + 1;
+
+movieData.episodeTitle =
+episode.title || "";
+
+movieData.stream =
+episode.stream;
+
+movieData.resumeTime =
+0;
+
+movieData.progress =
+0;
+
+
+/* =====================================================
+   TÍTULO
+   ===================================================== */
+
+title =
+movieData.title || "";
+
+videoUrl =
+episode.stream;
+
+
+/* =====================================================
+   GUARDAR NUEVO ESTADO
+   ===================================================== */
+
+localStorage.setItem(
+
+"zonaPlayerContent",
+
+JSON.stringify(
+movieData
+)
+
+);
+
+
+/* =====================================================
+   BORRAR POSICIÓN ANTERIOR
+   ===================================================== */
+
+localStorage.removeItem(
+"lastPosition_" +
+videoUrl
+);
+
+
+/* =====================================================
+   ACTUALIZAR UI
+   ===================================================== */
+
+updateContentTitle();
+
+
+playerImage.src =
+movieData.poster ||
+movieData.image ||
+"";
+
+
+playerImage.style.display =
+
+(
+
+movieData.poster ||
+movieData.image
+
+)
+
+?
+
+"block"
+
+:
+
+"none";
+
+
+/*
+   CORRECCIÓN:
+   Antes de cargar cada episodio nuevo se muestra
+   nuevamente el fondo ZONA▶PLAY + spinner.
+*/
+
+showPlayerLoading();
+
+
+/* =====================================================
+   CARGAR EPISODIO
+   ===================================================== */
+
+loadVideo(
+episode.stream || episode.video || episode.url || episode.src || "");
+
+
+showPlayerControls();
+
+}
+
+
+/* =========================================================
+   RESUME
+   ========================================================= */
+
+let savedTime = 0;
+
+
+if(movieData){
+
+savedTime =
+movieData.resumeTime || 0;
+
+}else{
+
+savedTime =
+parseFloat(
+
+localStorage.getItem(
+"lastPosition_" +
+videoUrl
+)
+
+) || 0;
+
+}
+
+
+if(
+
+isMovieMode &&
+
+savedTime > 30
+
+){
+
+resumeBox.style.display =
+"block";
+
+resumeBtn.focus();
+
+
+resumeBtn.onclick =
+()=>{
+
+resumeBox.style.display =
+"none";
+
+video.currentTime =
+savedTime;
+
+video.play().catch(()=>{});
+
+};
+
+
+restartBtn.onclick =
+()=>{
+
+resumeBox.style.display =
+"none";
+
+video.currentTime =
+0;
+
+video.play().catch(()=>{});
+
+};
+
+}
+
+
+/* =========================================================
+   RESUME BOTONES
+   ========================================================= */
+
+let resumeIndex = 0;
+
+
+const resumeButtons = [
+resumeBtn,
+restartBtn
+];
+
+
+document.addEventListener(
+"keydown",
+(e)=>{
+
+if(
+resumeBox.style.display !==
+"block"
+){
+
+return;
+
+}
+
+
+if(
+e.key === "ArrowDown"
+){
+
+resumeIndex++;
+
+if(
+resumeIndex >=
+resumeButtons.length
+){
+
+resumeIndex = 0;
+
+}
+
+resumeButtons[
+resumeIndex
+].focus();
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "ArrowUp"
+){
+
+resumeIndex--;
+
+if(
+resumeIndex < 0
+){
+
+resumeIndex =
+resumeButtons.length - 1;
+
+}
+
+resumeButtons[
+resumeIndex
+].focus();
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "Enter" ||
+e.keyCode === 13
+){
+
+const focused =
+document.activeElement;
+
+
+if(
+focused &&
+resumeButtons.includes(
+focused
+)
+){
+
+focused.click();
+
+}
+
+e.preventDefault();
+
+}
+
+}
+);
+
+
+/* =========================================================
+   NAVEGACIÓN PRINCIPAL
+   ========================================================= */
+
+document.addEventListener(
+"keydown",
+(e)=>{
+
+/* =====================================================
+   RESUME
+   ===================================================== */
+
+if(
+resumeBox.style.display ===
+"block"
+){
+
+return;
+
+}
+
+
+/* =====================================================
+   MENÚ CANALES
+   ===================================================== */
+
+if(
+channelSelectorMenu.classList.contains(
+"active"
+)
+){
+
+if(
+e.key === "ArrowDown"
+){
+
+channelMenuIndex++;
+
+if(
+channelMenuIndex >=
+channelButtons.length
+){
+
+channelMenuIndex = 0;
+
+}
+
+channelButtons[
+channelMenuIndex
+]?.focus();
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "ArrowUp"
+){
+
+channelMenuIndex--;
+
+if(
+channelMenuIndex < 0
+){
+
+channelMenuIndex =
+channelButtons.length - 1;
+
+}
+
+channelButtons[
+channelMenuIndex
+]?.focus();
+
+e.preventDefault();
+
+return;
+
+}
+
+
+/*
+   CORRECCIÓN:
+   Flecha izquierda también cierra el selector.
+*/
+
+if(
+e.key === "ArrowLeft"
+){
+
+channelSelectorMenu.classList.remove(
+"active"
+);
+
+channelSelectorBtn.focus();
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "Enter" ||
+e.keyCode === 13
+){
+
+const focused =
+document.activeElement;
+
+
+/*
+   Solo ejecutar el botón actualmente enfocado.
+   Esto evita que el botón selector vuelva a provocar
+   una acción de cambio de canal.
+*/
+
+if(
+focused &&
+channelSelectorMenu.contains(
+focused
+)
+){
+
+focused.click();
+
+}
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "Escape" ||
+e.keyCode === 27
+){
+
+channelSelectorMenu.classList.remove(
+"active"
+);
+
+channelSelectorBtn.focus();
+
+e.preventDefault();
+
+return;
+
+}
+
+
+/* Volver */
+
+if(
+e.key === "Backspace" ||
+e.keyCode === 461
+){
+
+channelSelectorMenu.classList.remove(
+"active"
+);
+
+channelSelectorBtn.focus();
+
+e.preventDefault();
+
+return;
+
+}
+
+return;
+
+}
+
+
+/* =====================================================
+   ATRÁS
+   ===================================================== */
+
+if(
+
+e.key === "Backspace" ||
+e.keyCode === 461
+
+){
+
+video.pause();
+
+history.back();
+
+return;
+
+}
+
+
+/* =====================================================
+   ARRIBA / ABAJO EN PELÍCULAS Y SERIES
+   ===================================================== */
+
+if(
+
+(isMovieMode || isSeriesMode)
+
+&&
+
+e.key === "ArrowDown"
+
+){
+
+focusPlayerButton(0);
+
+e.preventDefault();
+
+return;
+
+}
+
+
+/* =====================================================
+   TV
+   ===================================================== */
+
+if(
+
+!isMovieMode &&
+!isSeriesMode &&
+
+playerMode === "tv" &&
+
+channels.length > 0
+
+){
+
+if(
+e.key === "ArrowUp"
+){
+
+changeChannel(1);
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "ArrowDown"
+){
+
+changeChannel(-1);
+
+e.preventDefault();
+
+return;
+
+}
+
+}
+
+
+/* =====================================================
+   24/7
+   ===================================================== */
+
+if(
+
+!isMovieMode &&
+!isSeriesMode &&
+
+playerMode === "247" &&
+
+channels.length > 0
+
+){
+
+if(
+e.key === "ArrowUp"
+){
+
+change247Channel(1);
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "ArrowDown"
+){
+
+change247Channel(-1);
+
+e.preventDefault();
+
+return;
+
+}
+
+}
+
+
+/* =====================================================
+   SEEK
+   ===================================================== */
+
+if(
+seekMode
+){
+
+if(
+e.key === "ArrowDown"
+){
+
+hideSeekCursor();
+
+clearInterval(
+seekInterval
+);
+
+seekInterval = null;
+
+focusPlayerButton(0);
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "ArrowUp"
+){
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "ArrowRight" ||
+e.key === "ArrowLeft"
+){
+
+seekDirection =
+e.key === "ArrowRight"
+?
+1
+:
+-1;
+
+seekPosition +=
+seekDirection * 10;
+
+
+seekPosition =
+Math.max(
+0,
+seekPosition
+);
+
+
+if(
+isFinite(video.duration)
+){
+
+seekPosition =
+Math.min(
+video.duration,
+seekPosition
+);
+
+}
+
+
+updateSeekCursor();
+
+clearInterval(
+seekInterval
+);
+
+
+seekInterval =
+setInterval(
+()=>{
+
+seekPosition +=
+seekDirection * 10;
+
+
+seekPosition =
+Math.max(
+0,
+seekPosition
+);
+
+
+if(
+isFinite(video.duration)
+){
+
+seekPosition =
+Math.min(
+video.duration,
+seekPosition
+);
+
+}
+
+
+updateSeekCursor();
+
+},
+100
+);
+
+
+e.preventDefault();
+
+return;
+
+}
+
+
+if(
+e.key === "Enter" ||
+e.keyCode === 13
+){
+
+clearInterval(
+seekInterval
+);
+
+seekInterval = null;
+
+video.currentTime =
+seekPosition;
+
+hideSeekCursor();
+
+e.preventDefault();
+
+return;
+
+}
+
+}
+
+
+/* =====================================================
+   INICIAR SEEK
+   ===================================================== */
+
+if(
+
+(isMovieMode || isSeriesMode) &&
+
+(
+e.key === "ArrowLeft" ||
+e.key === "ArrowRight"
+)
+
+){
+
+showSeekCursor();
+
+seekDirection =
+e.key === "ArrowRight"
+?
+1
+:
+-1;
+
+seekPosition +=
+seekDirection * 10;
+
+
+seekPosition =
+Math.max(
+0,
+seekPosition
+);
+
+
+if(
+isFinite(video.duration)
+){
+
+seekPosition =
+Math.min(
+video.duration,
+seekPosition
+);
+
+}
+
+
+updateSeekCursor();
+
+clearInterval(
+seekInterval
+);
+
+
+seekInterval =
+setInterval(
+()=>{
+
+seekPosition +=
+seekDirection * 10;
+
+
+seekPosition =
+Math.max(
+0,
+seekPosition
+);
+
+
+if(
+isFinite(video.duration)
+){
+
+seekPosition =
+Math.min(
+video.duration,
+seekPosition
+);
+
+}
+
+
+updateSeekCursor();
+
+},
+100
+);
+
+
+e.preventDefault();
+
+return;
+
+}
+
+
+/* =====================================================
+   NAVEGAR BOTONES
+   ===================================================== */
+
+if(
+e.key === "ArrowRight"
+){
+
+const visibleButtons =
+getVisiblePlayerButtons();
+
+
+playerIndex++;
+
+
+if(
+playerIndex >=
+visibleButtons.length
+){
+
+playerIndex = 0;
+
+}
+
+
+focusPlayerButton(
+playerIndex
+);
+
+e.preventDefault();
+
+return;
+
+}
+
+
+/* =====================================================
+   FLECHA IZQUIERDA
+   ===================================================== */
+
+if(
+e.key === "ArrowLeft"
+){
+
+const visibleButtons =
+getVisiblePlayerButtons();
+
+
+playerIndex--;
+
+
+if(
+playerIndex < 0
+){
+
+playerIndex =
+visibleButtons.length - 1;
+
+}
+
+
+focusPlayerButton(
+playerIndex
+);
+
+e.preventDefault();
+
+return;
+
+}
+
+
+/* =====================================================
+   ENTER — CORRECCIÓN PRINCIPAL
+   ===================================================== */
+
+if(
+e.key === "Enter" ||
+e.keyCode === 13
+){
+
+const focused =
+document.activeElement;
+
+
+if(
+focused &&
+typeof focused.click ===
+"function"
+){
+
+focused.click();
+
+}
+
+
+e.preventDefault();
+
+return;
+
+}
+
+});
+
+
+/* =========================================================
+   KEYUP SEEK
+   ========================================================= */
+
+document.addEventListener(
+"keyup",
+(e)=>{
+
+if(!seekMode)
+return;
+
+
+if(
+e.key === "ArrowRight" ||
+e.key === "ArrowLeft"
+){
+
+clearInterval(
+seekInterval
+);
+
+seekInterval = null;
+
+video.currentTime =
+seekPosition;
+
+hideSeekCursor();
+
+e.preventDefault();
+
+}
+
+});
+
+
+/* =========================================================
+   ACTIVIDAD
+   ========================================================= */
+
+document.addEventListener(
+"keydown",
+()=>{
+
+showPlayerControls();
+
+}
+);
+
+
+document.addEventListener(
+"mousemove",
+()=>{
+
+showPlayerControls();
+
+}
+);
+
+
+video.addEventListener(
+"play",
+()=>{
+
+showPlayerControls();
+
+}
+);
+
+
+/* =========================================================
+   CARGA COMPLETA
+   ========================================================= */
+
+video.addEventListener(
+"loadeddata",
+()=>{
+
+selectNativeSpanishAudioTrack();
+
+/*
+   CORRECCIÓN:
+   Aquí se mantiene la lógica original:
+   cuando el video ya tiene datos suficientes,
+   se oculta el logo de fondo y el spinner.
+*/
+
+hidePlayerBackground();
+
+playerStatus.style.display =
+"none";
+
+
+let resume = 0;
+
+
+if(movieData){
+
+resume =
+movieData.resumeTime || 0;
+
+}else{
+
+resume =
+parseFloat(
+
+localStorage.getItem(
+"lastPosition_" +
+videoUrl
+)
+
+) || 0;
+
+}
+
+
+if(
+resume > 0 &&
+isFinite(video.duration)
+){
+
+try{
+
+video.currentTime =
+resume;
+
+}catch(e){}
+
+}
+
+
+if(
+isMovieMode &&
+isFinite(video.duration)
+){
+
+localStorage.setItem(
+
+"duration_" +
+videoUrl,
+
+video.duration
+
+);
+
+}
+
+}
+);
+
+
+/* =========================================================
+   WAITING
+   ========================================================= */
+
+video.addEventListener(
+"waiting",
+()=>{
+
+if(
+!isMovieMode &&
+!isSeriesMode
+){
+
+durationTimeText.innerHTML =
+'<span class="live-off">●</span> EN VIVO';
+
+}
+
+
+/*
+   Si el video entra en buffering, mantenemos el
+   spinner y el fondo visible hasta que vuelva a
+   reproducirse.
+*/
+
+showPlayerLoading();
+
+}
+);
+
+
+/* =========================================================
+   ERROR
+   ========================================================= */
+
+video.addEventListener(
+"error",
+()=>{
+
+playerStatus.style.display =
+"block";
+
+playerStatus.innerHTML =
+'<i class="fas fa-circle-exclamation"></i> Error al reproducir';
+
+}
+);
+
+
+/* =========================================================
+   VIDEO TERMINADO
+   ========================================================= */
+
+video.addEventListener(
+"ended",
+()=>{
+
+if(!movieData)
+return;
+
+
+/* Eliminar episodio terminado */
+
+removeCurrentEpisodeFromHistory();
+
+
+/* =====================================================
+   SERIE
+   ===================================================== */
+
+if(
+movieData.type === "series"
+){
+
+playNextEpisode();
+
+return;
+
+}
+
+
+/* =====================================================
+   PELÍCULA
+   ===================================================== */
+
+localStorage.removeItem(
+"lastPosition_" +
+videoUrl
+);
+
+}
+);
+
+
+/* =========================================================
+   CONFIGURAR UI
+   ========================================================= */
+
+configureContentUI();
+
+updateContentTitle();
+
+showChannelInfo();
+
+showPlayerControls();
+
+focusPlayerButton(0);
+
+
+/* =========================================================
+   TÍTULO INICIAL
+   ========================================================= */
+
+if(
+isMovieMode ||
+isSeriesMode
+){
+
+updateContentTitle();
+
+}else{
+
+showChannelInfo();
+
+}
+
+</script>
+
+<script>
+/* Estado público para el futuro puente Android */
+(function(){
+  window.zonaPlayCurrentTitle = window.zonaPlayCurrentTitle || "";
+  window.zonaPlayCurrentType = window.zonaPlayCurrentType || "";
+
+  function syncZonaPlayNativeState(){
+    try{
+      if(typeof title !== "undefined"){
+        window.zonaPlayCurrentTitle = title || "";
+      }
+      if(typeof movieData !== "undefined" && movieData){
+        window.zonaPlayCurrentType = movieData.type || "";
+      }
+    }catch(e){}
+  }
+
+  window.addEventListener("zonaPlaySyncNativeState", syncZonaPlayNativeState);
+})();
+</script>
+
+</body>
+</html>
